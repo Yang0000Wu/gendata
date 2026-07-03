@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
+<title>GenData — 仿真数据生成</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f8f9fa;color:#1a1a2e;font-family:system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;line-height:1.6;min-height:100vh}
+.container{max-width:800px;margin:0 auto;padding:16px}
+.header{display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-bottom:24px;border-bottom:1px solid #e8e8e8}
+.logo{font-size:20px;font-weight:800}
+.logo span{background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav{display:flex;gap:12px;align-items:center}
+.nav a{text-decoration:none;color:#666;font-size:14px;font-weight:600;cursor:pointer}
+.nav a:hover{color:#6366f1}
+.btn{background:#1a1a2e;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.btn:hover{opacity:.85}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-outline{background:transparent;color:#1a1a2e;border:2px solid #1a1a2e}
+.btn-outline:hover{background:#1a1a2e;color:#fff}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+.btn-primary:hover{opacity:.9}
+.card{background:#fff;border-radius:16px;padding:24px;margin-bottom:16px;box-shadow:0 2px 12px rgba(0,0,0,.04)}
+.card h2{font-size:18px;margin-bottom:12px}
+.card h3{font-size:15px;margin-bottom:8px;color:#666}
+.textarea{width:100%;min-height:180px;padding:14px;border:2px solid #e8e8e8;border-radius:12px;font-family:monospace;font-size:13px;resize:vertical;outline:none}
+.textarea:focus{border-color:#6366f1}
+.input{width:100%;padding:10px 14px;border:2px solid #e8e8e8;border-radius:10px;font-size:14px;outline:none}
+.input:focus{border-color:#6366f1}
+.form-row{display:flex;gap:12px;margin-bottom:16px;align-items:end;flex-wrap:wrap}
+.form-row label{font-size:13px;font-weight:700;color:#666;display:block;margin-bottom:4px}
+.form-group{flex:1;min-width:120px}
+select.input{background:#fff;cursor:pointer}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:16px 0}
+.price-card{border:2px solid #e8e8e8;border-radius:14px;padding:20px;text-align:center;cursor:pointer;transition:.2s}
+.price-card:hover{border-color:#6366f1}
+.price-card.featured{border-color:#6366f1;background:linear-gradient(135deg,#f5f3ff,#ede9fe)}
+.price-card .pname{font-size:13px;color:#666;font-weight:600;margin-bottom:4px}
+.price-card .pprice{font-size:28px;font-weight:900;color:#1a1a2e}
+.price-card .pprice span{font-size:14px;font-weight:400;color:#999}
+.price-card .pdesc{font-size:12px;color:#999;margin-top:4px}
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.toolbar .tab{padding:8px 16px;border-radius:99px;border:1px solid #e8e8e8;font-size:13px;font-weight:600;cursor:pointer;color:#666;background:#fff}
+.toolbar .tab.active{border-color:#6366f1;color:#6366f1;background:#f5f3ff}
+.preview-box{background:#f8f9fa;border-radius:12px;padding:16px;font-family:monospace;font-size:12px;line-height:1.8;max-height:300px;overflow:auto;white-space:pre;margin:12px 0}
+.status-badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700}
+.status-done{background:#dcfce7;color:#166534}
+.status-running{background:#fef3c7;color:#92400e}
+.status-failed{background:#fce4ec;color:#c62828}
+.status-pending{background:#e8e8e8;color:#666}
+.task-item{padding:14px;border:1px solid #e8e8e8;border-radius:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.task-info{flex:1}
+.task-info .tname{font-weight:700;font-size:14px}
+.task-info .tmeta{font-size:12px;color:#999;margin-top:2px}
+.auth-box{max-width:400px;margin:60px auto;text-align:center}
+.auth-box input{margin-bottom:12px}
+.auth-box .btn{width:100%;margin-top:8px}
+.hidden{display:none!important}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:99px;font-size:13px;font-weight:600;z-index:100;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+.plan-badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:#f5f3ff;color:#6366f1}
+@media(max-width:600px){.grid-3{grid-template-columns:1fr}.form-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <div class="header">
+    <div class="logo"><span>GenData</span> <span style="font-size:13px;font-weight:400;color:#999;margin-left:4px">仿真数据生成</span></div>
+    <div class="nav">
+      <span id="nav-user" class="hidden" style="font-size:13px;color:#666"></span>
+      <a id="nav-tasks" class="hidden" onclick="showTab('tasks')">任务记录</a>
+      <a id="nav-pricing" class="hidden" onclick="showTab('pricing')">定价</a>
+      <a id="nav-logout" class="hidden" onclick="logout()">退出</a>
+      <a id="nav-login" onclick="showAuth()">登录</a>
+    </div>
+  </div>
+
+  <!-- 登录/注册 -->
+  <div id="auth-view" class="auth-box">
+    <h2 style="margin-bottom:20px">登录 GenData</h2>
+    <input id="auth-email" class="input" type="email" placeholder="邮箱" autocomplete="email">
+    <input id="auth-pass" class="input" type="password" placeholder="密码" autocomplete="current-password">
+    <button class="btn btn-primary" onclick="doLogin()">登录</button>
+    <p style="margin-top:12px;font-size:13px;color:#999">没有账号？<a onclick="doRegister()" style="color:#6366f1;cursor:pointer;text-decoration:underline">注册</a></p>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="main-view" class="hidden">
+    <!-- 定价 -->
+    <div id="tab-pricing" class="hidden">
+      <h2 style="margin-bottom:16px">定价方案</h2>
+      <div class="grid-3" id="price-list"></div>
+      <p style="font-size:13px;color:#999;text-align:center">首单免费 · 不满意不扣费</p>
+    </div>
+
+    <!-- 任务记录 -->
+    <div id="tab-tasks" class="hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2>任务记录</h2>
+        <button class="btn btn-sm btn-outline" onclick="loadTasks()">刷新</button>
+      </div>
+      <div id="task-list"></div>
+    </div>
+
+    <!-- 生成页（默认） -->
+    <div id="tab-generate">
+      <div class="card">
+        <h2>粘贴 SQL 表结构</h2>
+        <p style="font-size:13px;color:#999;margin-bottom:12px">贴入 CREATE TABLE 语句，AI 自动分析字段含义并生成仿真数据</p>
+        <textarea id="sql-input" class="textarea" placeholder="CREATE TABLE users (
+  id INT PRIMARY KEY,
+  user_name VARCHAR(50),
+  phone VARCHAR(20),
+  email VARCHAR(100),
+  created_at TIMESTAMP
+);"></textarea>
+        <button class="btn btn-primary" onclick="analyze()" style="margin-top:12px">分析结构 →</button>
+      </div>
+
+      <div id="schema-result" class="hidden">
+        <div class="card">
+          <h2>字段分析结果</h2>
+          <div id="field-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="form-row">
+            <div class="form-group">
+              <label>生成条数</label>
+              <input id="row-count" class="input" type="number" value="1000" min="100" max="1000000">
+            </div>
+            <div class="form-group">
+              <label>输出格式</label>
+              <select id="output-format" class="input">
+                <option value="csv">CSV</option>
+                <option value="json">JSON</option>
+                <option value="sql">INSERT SQL</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:end">
+              <button class="btn btn-primary" onclick="generate()">🚀 生成数据</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="gen-result" class="hidden">
+        <div class="card">
+          <h2>生成完成</h2>
+          <div id="gen-stats" style="margin:12px 0;font-size:14px"></div>
+          <button class="btn btn-primary" id="download-btn" onclick="downloadResult()">📥 下载</button>
+          <button class="btn btn-sm btn-outline" onclick="resetGen()" style="margin-left:8px">重新生成</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let token = localStorage.getItem('gd_token') || '';
+let currentTaskId = null;
+let currentSchema = null;
+
+function show(m){let t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('show'),2500)}
+
+async function apiFetch(path, opts={}){
+  const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
+  if(token) headers['Authorization'] = 'Bearer '+token;
+  const res = await fetch(API+path, {...opts, headers});
+  if(res.status===401){token='';localStorage.removeItem('gd_token');checkAuth();show('登录已过期');return null}
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok){show(data.detail || '请求失败');return null}
+  return data;
+}
+
+// ── Auth ──
+function checkAuth(){
+  if(token){
+    apiFetch('/api/auth/me').then(u=>{
+      if(u){
+        document.getElementById('auth-view').classList.add('hidden');
+        document.getElementById('main-view').classList.remove('hidden');
+        document.getElementById('nav-user').classList.remove('hidden');
+        document.getElementById('nav-tasks').classList.remove('hidden');
+        document.getElementById('nav-pricing').classList.remove('hidden');
+        document.getElementById('nav-logout').classList.remove('hidden');
+        document.getElementById('nav-login').classList.add('hidden');
+        document.getElementById('nav-user').textContent = u.email + ' · ' + (u.plan === 'free' ? '免费' : u.plan) + (u.free_gens_left > 0 ? ' · 剩余'+u.free_gens_left+'次免费' : '');
+        showTab('generate');
+        loadPrices();
+      }
+    });
+  } else {
+    document.getElementById('auth-view').classList.remove('hidden');
+    document.getElementById('main-view').classList.add('hidden');
+    document.getElementById('nav-user').classList.add('hidden');
+    document.getElementById('nav-tasks').classList.add('hidden');
+    document.getElementById('nav-pricing').classList.add('hidden');
+    document.getElementById('nav-logout').classList.add('hidden');
+    document.getElementById('nav-login').classList.remove('hidden');
+  }
+}
+
+function showAuth(){document.getElementById('auth-view').classList.remove('hidden');document.getElementById('main-view').classList.add('hidden')}
+
+async function doLogin(){
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-pass').value.trim();
+  if(!email||!password){show('请填写邮箱和密码');return}
+  const data = await apiFetch('/api/auth/login', {method:'POST', body:JSON.stringify({email, password})});
+  if(data){token=data.token;localStorage.setItem('gd_token',token);checkAuth();show('登录成功')}
+}
+
+async function doRegister(){
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-pass').value.trim();
+  if(!email||!password||password.length<6){show('密码至少6位');return}
+  const data = await apiFetch('/api/auth/register', {method:'POST', body:JSON.stringify({email, password})});
+  if(data){token=data.token;localStorage.setItem('gd_token',token);checkAuth();show('注册成功 · 送你1次免费生成')}
+}
+
+function logout(){token='';localStorage.removeItem('gd_token');checkAuth();show('已退出')}
+
+// ── Tabs ──
+function showTab(name){
+  ['generate','pricing','tasks'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('hidden', t!==name);
+  });
+  if(name==='tasks') loadTasks();
+}
+
+// ── Pricing ──
+async function loadPrices(){
+  const data = await apiFetch('/api/generate/prices');
+  if(!data) return;
+  document.getElementById('price-list').innerHTML = `
+    <div class="price-card">
+      <div class="pname">按次</div>
+      <div class="pprice">¥${data.pay_per_use}<span>/次</span></div>
+      <div class="pdesc">单次生成，适合偶尔使用</div>
+    </div>
+    <div class="price-card featured">
+      <div class="pname">个人版</div>
+      <div class="pprice">¥${data.personal_monthly}<span>/月</span></div>
+      <div class="pdesc">每月不限次 · ${data.free_trial}次免费试用</div>
+    </div>
+    <div class="price-card">
+      <div class="pname">企业版</div>
+      <div class="pprice">¥${data.enterprise_monthly}<span>/月</span></div>
+      <div class="pdesc">百万级 · 无限制 · API接入</div>
+    </div>
+  `;
+}
+
+// ── Generate ──
+async function analyze(){
+  const sql = document.getElementById('sql-input').value.trim();
+  if(!sql){show('请先粘贴SQL结构');return}
+
+  const form = new FormData();
+  form.append('schema', sql);
+  const headers = token ? {'Authorization': 'Bearer '+token} : {};
+  const res = await fetch(API+'/api/generate/analyze', {method:'POST', headers:{...headers}, body:form}).catch(()=>null);
+  if(!res||!res.ok){show('分析失败');return}
+  const data = await res.json();
+  const tables = data.tables||[];
+
+  // 显示结果
+  let html = '';
+  tables.forEach((t,i)=>{
+    html += `<h3 style="margin-top:${i>0?'16px':'0'};margin-bottom:8px">📋 表 ${t.name||'table_'+i}</h3>`;
+    html += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
+    html += '<tr style="background:#f8f9fa;font-weight:600;color:#666"><td style="padding:6px 8px">字段</td><td style="padding:6px 8px">类型</td><td style="padding:6px 8px">生成方式</td></tr>';
+    (t.fields||[]).forEach(f=>{
+      html += `<tr><td style="padding:4px 8px;border-top:1px solid #eee;font-family:monospace">${f.field}</td><td style="padding:4px 8px;border-top:1px solid #eee;font-size:12px;color:#666">${f.type||''}</td><td style="padding:4px 8px;border-top:1px solid #eee"><span style="background:#f5f3ff;color:#6366f1;padding:1px 6px;border-radius:4px;font-size:11px">${f.gen_type}</span></td></tr>`;
+    });
+    html += '</table>';
+  });
+  document.getElementById('field-list').innerHTML = html;
+  document.getElementById('schema-result').classList.remove('hidden');
+  currentSchema = tables;
+}
+
+async function generate(){
+  if(!currentSchema||!currentSchema.length){show('请先分析SQL结构');return}
+  const rows = parseInt(document.getElementById('row-count').value) || 1000;
+  const fmt = document.getElementById('output-format').value;
+
+  const form = new FormData();
+  form.append('schema_json', JSON.stringify({tables: currentSchema}));
+  form.append('row_count', String(rows));
+  form.append('output_format', fmt);
+
+  const headers = token ? {'Authorization': 'Bearer '+token} : {};
+  const res = await fetch(API+'/api/generate/run', {method:'POST', headers:{...headers}, body:form}).catch(()=>null);
+  if(!res||!res.ok){show('生成失败，请检查余额');return}
+  const data = await res.json();
+  currentTaskId = data.task_id;
+
+  show('🚀 正在生成...');
+  document.getElementById('gen-result').classList.remove('hidden');
+  document.getElementById('gen-stats').innerHTML = '<span style="color:#92400e">⏳ 生成中，请稍候...</span>';
+  document.getElementById('download-btn').disabled = true;
+
+  // 轮询
+  pollTask(currentTaskId);
+}
+
+async function pollTask(taskId){
+  for(let i=0;i<60;i++){
+    await new Promise(r=>setTimeout(r,2000));
+    const data = await apiFetch('/api/tasks/'+taskId);
+    if(!data) continue;
+    if(data.status==='done'){
+      document.getElementById('gen-stats').innerHTML = `✅ 已生成 <strong>${data.output_rows||0}</strong> 条数据，格式 ${data.output_format.toUpperCase()}`;
+      document.getElementById('download-btn').disabled = false;
+      show('✅ 生成完成！');
+      return;
+    }
+    if(data.status==='failed'){
+      document.getElementById('gen-stats').innerHTML = `❌ 生成失败: ${data.error_msg||'未知错误'}`;
+      show('❌ 生成失败');
+      return;
+    }
+    document.getElementById('gen-stats').innerHTML = `<span style="color:#92400e">⏳ 生成中 (${(i+1)*2}s)...</span>`;
+  }
+  document.getElementById('gen-stats').innerHTML = '⚠️ 超时，请到任务记录中查看';
+}
+
+function downloadResult(){
+  if(!currentTaskId) return;
+  window.open(API+'/api/tasks/'+currentTaskId+'/download', '_blank');
+}
+
+function resetGen(){
+  currentTaskId = null;
+  document.getElementById('gen-result').classList.add('hidden');
+  document.getElementById('schema-result').classList.add('hidden');
+  document.getElementById('sql-input').value = '';
+}
+
+// ── Tasks ──
+async function loadTasks(){
+  const data = await apiFetch('/api/tasks');
+  if(!data||!data.length){document.getElementById('task-list').innerHTML='<p style="color:#999;font-size:14px">暂无任务记录</p>';return}
+  let html = '';
+  data.forEach(t=>{
+    const statusClass = 'status-'+t.status;
+    html += `<div class="task-item"><div class="task-info"><div class="tname">任务 #${t.id}</div><div class="tmeta">${t.row_count}条 · ${t.output_format.toUpperCase()} · ${t.created_at||''}</div></div><div><span class="status-badge ${statusClass}">${t.status==='done'?'已完成':t.status==='running'?'生成中':t.status==='failed'?'失败':'等待中'}</span>${t.has_output?`<button class="btn btn-sm btn-primary" style="margin-left:8px" onclick="window.open('${API}/api/tasks/${t.id}/download','_blank')">下载</button>`:''}</div></div>`;
+  });
+  document.getElementById('task-list').innerHTML = html;
+}
+
+// ── Init ──
+checkAuth();
+</script>
+</body>
+</html>
