@@ -235,7 +235,7 @@ function showTab(name){
 
 // ── Pricing ──
 async function loadPrices(){
-  const data = await apiFetch('/api/generate/prices');
+  const data = await apiFetch('/api/prices');
   if(!data) return;
   document.getElementById('price-list').innerHTML = `
     <div class="price-card">
