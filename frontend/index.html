@@ -71,6 +71,7 @@ select.input{background:#fff;cursor:pointer}
       <span id="nav-user" class="hidden" style="font-size:13px;color:#666"></span>
       <a id="nav-tasks" class="hidden" onclick="showTab('tasks')">任务记录</a>
       <a id="nav-pricing" class="hidden" onclick="showTab('pricing')">定价</a>
+      <a id="nav-recharge" class="hidden" onclick="showTab('recharge');loadRecharge()">充值</a>
       <a id="nav-logout" class="hidden" onclick="logout()">退出</a>
       <a id="nav-login" onclick="showAuth()">登录</a>
     </div>
@@ -87,6 +88,19 @@ select.input{background:#fff;cursor:pointer}
 
   <!-- 主界面 -->
   <div id="main-view" class="hidden">
+    <!-- 充值 -->
+    <div id="tab-recharge" class="hidden">
+      <h2 style="margin-bottom:16px">充值</h2>
+      <div class="grid-3" id="recharge-plans"></div>
+      <div id="recharge-qr" class="hidden" style="text-align:center;margin-top:20px">
+        <p style="margin-bottom:12px;font-size:15px;font-weight:700">微信支付 · 扫码付款</p>
+        <div id="recharge-qr-code" style="background:#f8f9fa;border:2px dashed #e8e8e8;border-radius:16px;padding:30px;display:inline-block">
+          <p style="color:#999;font-size:14px">加载支付二维码...</p>
+        </div>
+        <p style="margin-top:12px;font-size:13px;color:#999">支付完成后自动到账</p>
+      </div>
+    </div>
+
     <!-- 定价 -->
     <div id="tab-pricing" class="hidden">
       <h2 style="margin-bottom:16px">定价方案</h2>
@@ -187,6 +201,7 @@ function checkAuth(){
         document.getElementById('nav-user').classList.remove('hidden');
         document.getElementById('nav-tasks').classList.remove('hidden');
         document.getElementById('nav-pricing').classList.remove('hidden');
+        document.getElementById('nav-recharge').classList.remove('hidden');
         document.getElementById('nav-logout').classList.remove('hidden');
         document.getElementById('nav-login').classList.add('hidden');
         document.getElementById('nav-user').textContent = u.email + ' · ' + (u.plan === 'free' ? '免费' : u.plan) + (u.free_gens_left > 0 ? ' · 剩余'+u.free_gens_left+'次免费' : '');
@@ -200,6 +215,7 @@ function checkAuth(){
     document.getElementById('nav-user').classList.add('hidden');
     document.getElementById('nav-tasks').classList.add('hidden');
     document.getElementById('nav-pricing').classList.add('hidden');
+    document.getElementById('nav-recharge').classList.add('hidden');
     document.getElementById('nav-logout').classList.add('hidden');
     document.getElementById('nav-login').classList.remove('hidden');
   }
@@ -227,7 +243,7 @@ function logout(){token='';localStorage.removeItem('gd_token');checkAuth();show(
 
 // ── Tabs ──
 function showTab(name){
-  ['generate','pricing','tasks'].forEach(t=>{
+  ['generate','pricing','recharge','tasks'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('hidden', t!==name);
   });
   if(name==='tasks') loadTasks();
@@ -353,6 +369,35 @@ async function loadTasks(){
     html += `<div class="task-item"><div class="task-info"><div class="tname">任务 #${t.id}</div><div class="tmeta">${t.row_count}条 · ${t.output_format.toUpperCase()} · ${t.created_at||''}</div></div><div><span class="status-badge ${statusClass}">${t.status==='done'?'已完成':t.status==='running'?'生成中':t.status==='failed'?'失败':'等待中'}</span>${t.has_output?`<button class="btn btn-sm btn-primary" style="margin-left:8px" onclick="window.open('${API}/api/tasks/${t.id}/download','_blank')">下载</button>`:''}</div></div>`;
   });
   document.getElementById('task-list').innerHTML = html;
+}
+
+// ── Recharge ──
+async function loadRecharge(){
+  const data = await apiFetch('/api/pay/plans');
+  if(!data) return;
+  const plans = Object.entries(data);
+  document.getElementById('recharge-plans').innerHTML = plans.map(([k,v])=>`
+    <div class="price-card" onclick="createRecharge(${k})">
+      <div class="pname">${v.name}</div>
+      <div class="pprice">¥${v.yuan}<span></span></div>
+      <div class="pdesc">${v.desc}</div>
+    </div>
+  `).join('');
+}
+async function createRecharge(amount){
+  const data = await apiFetch('/api/pay/create/'+amount, {method:'POST'});
+  if(!data) return;
+  // 跳转到虎皮椒支付
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = data.pay_url;
+  Object.entries(data.params).forEach(([k,v])=>{
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = k; inp.value = v;
+    form.appendChild(inp);
+  });
+  document.body.appendChild(form);
+  form.submit();
 }
 
 // ── Init ──
