@@ -185,7 +185,7 @@ async function apiFetch(path, opts={}){
   const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
   if(token) headers['Authorization'] = 'Bearer '+token;
   const res = await fetch(API+path, {...opts, headers});
-  if(res.status===401){token='';localStorage.removeItem('gd_token');checkAuth();show('登录已过期');return null}
+  if(res.status===401){token='';localStorage.removeItem('gd_token');location.reload();return null}
   const data = await res.json().catch(()=>({}));
   if(!res.ok){show(data.detail || '请求失败');return null}
   return data;
