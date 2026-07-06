@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>GenData 远程诊断</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#eee;font-family:system-ui;padding:16px;font-size:14px}
+h1{font-size:18px;margin-bottom:12px}
+.card{background:#16213e;border-radius:10px;padding:14px;margin-bottom:10px}
+.card h3{font-size:14px;color:#4ade80;margin-bottom:6px}
+pre{font-size:12px;line-height:1.6;max-height:400px;overflow:auto;color:#ccc;white-space:pre-wrap;word-break:break-all}
+.btn{background:#4a6cf7;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px;margin:2px}
+.btn:hover{opacity:.85}
+.btn-red{background:#ef4444}
+.btn-green{background:#22c55e}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.stat{background:#0f172a;border-radius:8px;padding:10px;text-align:center}
+.stat .num{font-size:24px;font-weight:700}
+.stat .lbl{font-size:11px;color:#888;margin-top:2px}
+.log-entry{padding:6px 0;border-bottom:1px solid #1e293b;font-size:12px}
+.log-time{color:#64748b;font-size:10px}
+.log-critical{color:#ef4444;font-weight:600}
+.log-warning{color:#f59e0b}
+.log-info{color:#94a3b8}
+</style>
+</head>
+<body>
+<h1>🩺 GenData 远程诊断</h1>
+<p style="font-size:13px;color:#94a3b8;margin-bottom:16px">这个页面会自动收集 GenData 网站上的所有操作记录。记录会保存在浏览器里，跳转页面不会丢失。</p>
+
+<div class="card">
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-green" onclick="startMonitoring()">▶ 开始监控</button>
+    <button class="btn" onclick="exportReport()">📋 导出报告</button>
+    <button class="btn btn-red" onclick="clearAll()">🗑 清空</button>
+  </div>
+  <div class="grid">
+    <div class="stat"><div class="num" id="stat-total">0</div><div class="lbl">总记录</div></div>
+    <div class="stat"><div class="num" id="stat-critical" style="color:#ef4444">0</div><div class="lbl">严重问题</div></div>
+    <div class="stat"><div class="num" id="stat-pages">0</div><div class="lbl">页面数</div></div>
+    <div class="stat"><div class="num" id="stat-clicks">0</div><div class="lbl">点击次数</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>📝 操作记录</h3>
+  <div id="log-list"><span style="color:#64748b;font-size:13px">尚未开始监控</span></div>
+</div>
+
+<div class="card">
+  <h3>💡 诊断指南</h3>
+  <p style="font-size:13px;color:#94a3b8;line-height:1.8">
+  <strong>第1步：</strong>点「开始监控」<br>
+  <strong>第2步：</strong>打开 <a href="http://124.221.149.20/" target="_blank" style="color:#4ade80">http://124.221.149.20/</a> 正常操作<br>
+  <strong>第3步：</strong>回到本页点「📋 导出报告」→ 粘贴给我<br>
+  <br>
+  <span style="color:#f59e0b">跳转页面后记录不会丢失，但需要回到本页才能查看/导出。</span>
+  </p>
+</div>
+
+<script>
+var LOG_KEY = '__diag_log';
+var MON_KEY = '__diag_active';
+var PAGE_KEY = '__diag_pages';
+
+function getLog() { try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e) { return []; } }
+function setLog(arr) { localStorage.setItem(LOG_KEY, JSON.stringify(arr)); }
+function addLog(type, detail, severity) {
+  var log = getLog();
+  log.push({t: Date.now(), ts: new Date().toISOString(), type: type, detail: detail, severity: severity || 'info', url: location.href});
+  setLog(log);
+  refreshUI();
+}
+function clearAll() {
+  localStorage.removeItem(LOG_KEY);
+  localStorage.removeItem(MON_KEY);
+  localStorage.removeItem(PAGE_KEY);
+  refreshUI();
+  addLog('system', '记录已清空', 'info');
+}
+
+function startMonitoring() {
+  localStorage.setItem(MON_KEY, '1');
+  addLog('system', '监控已开启', 'info');
+  // 在GenData页面注入监控脚本
+  addLog('system', '请打开 http://124.221.149.20/ 开始操作', 'info');
+}
+
+function exportReport() {
+  var log = getLog();
+  var pages = {};
+  log.forEach(function(x) { pages[x.url] = (pages[x.url] || 0) + 1; });
+  var r = '===== GenData 诊断报告 =====\n';
+  r += '导出时间: ' + new Date().toISOString() + '\n';
+  r += '共 ' + log.length + ' 条记录, ' + Object.keys(pages).length + ' 个页面\n\n';
+  r += '--- 页面列表 ---\n';
+  Object.keys(pages).forEach(function(u) { r += '  ' + u + ' (' + pages[u] + '条)\n'; });
+  r += '\n--- 详细记录 ---\n';
+  log.forEach(function(x, i) {
+    r += (i+1) + '. [' + x.ts + '] [' + x.severity + '] ' + x.type + '\n';
+    r += '   详情: ' + x.detail + '\n';
+    r += '   页面: ' + (x.url || '') + '\n\n';
+  });
+  r += '===== 结束 =====';
+  navigator.clipboard.writeText(r).then(function() { alert('报告已复制！粘贴给AI'); });
+}
+
+function refreshUI() {
+  var log = getLog();
+  var total = log.length;
+  var critical = log.filter(function(x) { return x.severity === 'critical'; }).length;
+  var pages = {};
+  var clicks = 0;
+  log.forEach(function(x) {
+    pages[x.url] = 1;
+    if (x.type === 'click' || x.type === '\u70B9\u51FB') clicks++;
+  });
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-critical').textContent = critical;
+  document.getElementById('stat-pages').textContent = Object.keys(pages).length;
+  document.getElementById('stat-clicks').textContent = clicks;
+
+  var container = document.getElementById('log-list');
+  if (total === 0) { container.innerHTML = '<span style="color:#64748b;font-size:13px">暂无记录</span>'; return; }
+  var html = '';
+  var recent = log.slice(-30).reverse();
+  recent.forEach(function(x) {
+    var cls = x.severity === 'critical' ? 'log-critical' : x.severity === 'warning' ? 'log-warning' : 'log-info';
+    html += '<div class="log-entry"><span class="log-time">' + (x.ts || '').slice(11,19) + '</span> ';
+    html += '<span class="' + cls + '">[' + x.severity + '] ' + x.type + '</span><br>';
+    html += '<span style="color:#94a3b8">' + x.detail + '</span></div>';
+  });
+  container.innerHTML = html;
+}
+
+// 跨页面通信：监听 localStorage 变化（其他标签页写入时同步刷新）
+window.addEventListener('storage', function(e) {
+  if (e.key === LOG_KEY) refreshUI();
+});
+
+// 页面加载时刷新
+refreshUI();
+
+// 如果监控已开启，提示
+if (localStorage.getItem(MON_KEY) === '1') {
+  addLog('system', '\u9875\u9762\u5DF2\u52A0\u8F7D\uFF0C\u76D1\u63A7\u5DF2\u5F00\u542F', 'info');
+}
+</script>
+</body>
+</html>

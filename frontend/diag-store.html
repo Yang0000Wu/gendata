@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>store</title></head>
+<body>
+<script>
+// 跨站数据存储中心（隐藏 iframe）
+var KEY = '_dg_xlog';
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) { return []; }
+}
+function saveData(arr) {
+  localStorage.setItem(KEY, JSON.stringify(arr));
+}
+
+// 监听来自父页面的消息
+window.addEventListener('message', function(e) {
+  var msg = e.data;
+  if (!msg || !msg.cmd) return;
+
+  if (msg.cmd === 'add') {
+    var log = loadData();
+    log.push({ tm: Date.now(), ts: new Date().toISOString(), tp: msg.tp, dt: msg.dt, sev: msg.sev||'warn', url: msg.url });
+    saveData(log);
+    e.source.postMessage({ cmd: 'added', len: log.length }, '*');
+  }
+  else if (msg.cmd === 'get') {
+    e.source.postMessage({ cmd: 'data', data: loadData() }, '*');
+  }
+  else if (msg.cmd === 'clear') {
+    localStorage.removeItem(KEY);
+    e.source.postMessage({ cmd: 'cleared' }, '*');
+  }
+  else if (msg.cmd === 'count') {
+    e.source.postMessage({ cmd: 'counted', len: loadData().length }, '*');
+  }
+});
+
+// 通知父页面已就绪
+if (window.parent !== window) {
+  window.parent.postMessage({ cmd: 'ready' }, '*');
+}
+</script>
+</body>
+</html>

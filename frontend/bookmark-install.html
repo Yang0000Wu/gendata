@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>安装诊断书签</title>
+<style>
+body{background:#0f172a;color:#e2e8f0;font-family:system-ui;padding:30px;text-align:center}
+.box{background:#1e293b;border-radius:12px;padding:24px;max-width:500px;margin:20px auto}
+a.bookmark{display:inline-block;background:#4a6cf7;color:#fff;padding:12px 30px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:700;margin:10px}
+a.bookmark:hover{opacity:.85}
+.hint{font-size:13px;color:#94a3b8;margin:10px 0;line-height:1.8}
+code{background:#0f172a;padding:2px 6px;border-radius:4px;font-size:12px;color:#4ade80}
+.step{text-align:left;background:#0f172a;border-radius:8px;padding:12px;margin:8px 0;font-size:13px}
+.step b{color:#f59e0b}
+</style>
+</head>
+<body>
+<h2>📌 安装诊断书签</h2>
+<div class="box">
+  <p class="hint">把下面两个链接拖到浏览器的书签栏：</p>
+
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <a class="bookmark" href="javascript:(function(){var w=window.open('http://124.221.149.20/diag-popup.html','diag_monitor','width=290,height=450,scrollbars=yes');var s=document.createElement('script');s.src='http://124.221.149.20/diag-inject.js?'+Date.now();document.body.appendChild(s);})();">▶ 诊断开</a>
+    <a class="bookmark" style="background:#ef4444" href="javascript:(function(){var w=window.open('','diag_monitor');if(w&&!w.closed)w.close();window.__diagInjected=false;})();">■ 诊断关</a>
+  </div>
+
+  <div class="step">
+    <b>第1步：</b>确保浏览器书签栏已显示（Ctrl+Shift+B）
+  </div>
+  <div class="step">
+    <b>第2步：</b>用鼠标按住上面的 <code>▶ 诊断开</code> 链接，拖到书签栏
+  </div>
+  <div class="step">
+    <b>第3步：</b>同样的方法拖 <code>■ 诊断关</code> 到书签栏
+  </div>
+</div>
+
+<div class="box" style="border:1px solid #22c55e">
+  <h3 style="color:#4ade80">✅ 使用方法</h3>
+  <div class="step">
+    <b>1.</b> 打开任意网站 → 点书签 <code>▶ 诊断开</code><br>
+    弹出监控窗口，开始记录所有操作
+  </div>
+  <div class="step">
+    <b>2.</b> 跳转页面后 → 再点一次 <code>▶ 诊断开</code><br>
+    弹窗还在，记录继续
+  </div>
+  <div class="step">
+    <b>3.</b> 在弹窗里点 <b>「导出报告」</b><br>
+    复制全部记录
+  </div>
+  <div class="step">
+    <b>4.</b> 点书签 <code>■ 诊断关</code> → 关闭弹窗
+  </div>
+</div>
+</body>
+</html>

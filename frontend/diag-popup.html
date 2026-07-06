@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>诊断监控台</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;color:#e2e8f0;font-family:system-ui;font-size:13px;padding:10px;width:280px}
+h2{font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between}
+.status{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80}
+.rec{background:#1e293b;border-radius:6px;padding:8px;margin:6px 0;max-height:250px;overflow:auto;font-size:11px;line-height:1.5}
+.rec div{padding:3px 0;border-bottom:1px solid #1e293b}
+.rec .cri{color:#ef4444;font-weight:600}
+.rec .war{color:#f59e0b}
+.rec .inf{color:#94a3b8}
+.rec .time{color:#475569;font-size:10px}
+.btn{width:100%;padding:6px;border:none;border-radius:4px;cursor:pointer;font-size:12px;margin:2px 0}
+.btn-primary{background:#4a6cf7;color:#fff}
+.btn-danger{background:#ef4444;color:#fff}
+.btn-close{background:#374151;color:#94a3b8}
+.counter{display:flex;gap:8px;margin:4px 0}
+.counter span{flex:1;background:#1e293b;border-radius:4px;padding:4px;text-align:center}
+.counter .num{font-size:16px;font-weight:700}
+.counter .lbl{font-size:9px;color:#64748b}
+</style>
+<script>
+var events = [];
+
+function addEvent(type, detail, severity, url) {
+    events.push({time:new Date().toISOString(), type:type, detail:detail, severity:severity||'info', url:url||'unknown'});
+    render();
+}
+
+function render() {
+    var total = events.length;
+    var critical = events.filter(function(e){return e.severity==='critical';}).length;
+    document.getElementById('total').textContent = total;
+    document.getElementById('crit').textContent = critical;
+    var list = document.getElementById('list');
+    var recent = events.slice(-20).reverse();
+    list.innerHTML = recent.length ? recent.map(function(e){
+        var cls = e.severity==='critical'?'cri':e.severity==='warning'?'war':'inf';
+        return '<div><span class="time">'+(e.time||'').slice(11,19)+'</span> <span class="'+cls+'">['+e.severity+'] '+e.type+'</span><br><span style="color:#64748b;font-size:10px">'+e.detail+'</span></div>';
+    }).join('') : '<div style="color:#475569;text-align:center;padding:10px">等待事件...</div>';
+}
+
+function exportReport() {
+    var r = '===== 诊断报告 =====\n';
+    r += '时间: '+new Date().toISOString()+'\n';
+    r += '总记录: '+events.length+' 条\n\n';
+    var criticals = events.filter(function(e){return e.severity==='critical';});
+    if(criticals.length){
+        r += '🔴 严重问题 ('+criticals.length+'个)\n';
+        criticals.forEach(function(x,i){r+= (i+1)+'. ['+(x.time||'').slice(11,19)+'] '+x.type+'\n   '+x.detail+'\n   '+x.url+'\n';});
+        r += '\n';
+    }
+    events.filter(function(e){return e.severity!=='critical';}).forEach(function(x,i){
+        r+= (i+1)+'. ['+(x.time||'').slice(11,19)+'] ['+x.severity+'] '+x.type+'\n   '+x.detail+'\n';
+    });
+    r += '\n===== 结束 =====';
+    navigator.clipboard.writeText(r).then(function(){alert('报告已复制！');});
+}
+
+function clearAll() {
+    if(!confirm('确认清空？')) return;
+    events = []; render();
+}
+
+// 接收来自任何页面的消息
+window.addEventListener('message', function(e) {
+    if(e.data && e.data.type === 'diag_event') {
+        addEvent(e.data.eventType, e.data.detail, e.data.severity, e.data.url);
+    }
+});
+
+document.title = '🩺 诊断监控台';
+</script>
+</head>
+<body>
+<h2>🩺 诊断监控 <span class="status" id="statusDot"></span></h2>
+<div style="font-size:10px;color:#64748b;margin-bottom:4px">弹出窗口 · 跨页面持久记录</div>
+<div class="counter">
+    <span><div class="num" id="total">0</div><div class="lbl">总计</div></span>
+    <span><div class="num" id="crit" style="color:#ef4444">0</div><div class="lbl">严重</div></span>
+</div>
+<div class="rec" id="list"><div style="color:#475569;text-align:center;padding:10px">等待事件...</div></div>
+<button class="btn btn-primary" onclick="exportReport()">📋 导出报告 (复制到剪贴板)</button>
+<button class="btn btn-danger" onclick="clearAll()">🗑 清空</button>
+<p style="font-size:9px;color:#475569;margin-top:6px;text-align:center">点击书签在新页面注入监控</p>
+</body>
+</html>

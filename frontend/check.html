@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head><title>GenData 诊断</title></head>
+<body style="font-family:monospace;padding:20px;background:#1a1a2e;color:#fff">
+<h2>🔍 GenData 连接诊断</h2>
+<div id="out" style="line-height:2"></div>
+<script>
+const log = document.getElementById('out');
+function add(msg, ok){
+  log.innerHTML += `<div style="color:${ok?'#4ade80':'#f87171'}">${ok?'✅':'❌'} ${msg}</div>`;
+}
+
+// 1. 页面加载
+add('页面已加载', true);
+
+// 2. 首页可访问
+fetch('/').then(r=>{
+  add('首页状态: '+r.status, r.status===200);
+}).catch(()=>add('首页无法访问', false));
+
+// 3. API可访问
+fetch('/api/prices').then(r=>{
+  add('API状态: '+r.status, r.status===200);
+}).catch(()=>add('API无法访问', false));
+
+// 4. 注册API
+fetch('/api/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:'diag_'+Date.now()+'@t.com',password:'test123'})}).then(r=>r.json()).then(d=>{
+  add('注册API: '+(d.token?'有Token':'无Token'), !!d.token);
+  if(d.token){
+    // 5. 用Token调me
+    fetch('/api/auth/me', {headers:{'Authorization':'Bearer '+d.token}}).then(r=>r.json()).then(u=>{
+      add('用户信息: '+u.email, true);
+    });
+  }
+}).catch(()=>add('注册失败', false));
+
+// 6. localStorage检查
+try{
+  const t = localStorage.getItem('gd_token');
+  add('localStorage可读写', true);
+  if(t) add('已有Token: '+t.substr(0,15)+'...', true);
+  else add('无Token，需要登录', true);
+}catch(e){
+  add('localStorage不可用', false);
+}
+
+// 7. JS版本
+add('诊断完成', true);
+</script>
+</body>
+</html>

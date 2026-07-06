@@ -254,20 +254,23 @@ async function loadPrices(){
   const data = await apiFetch('/api/prices');
   if(!data) return;
   document.getElementById('price-list').innerHTML = `
-    <div class="price-card">
+    <div class="price-card" onclick="showTab('recharge');loadRecharge()" style="cursor:pointer">
       <div class="pname">按次</div>
       <div class="pprice">¥${data.pay_per_use}<span>/次</span></div>
       <div class="pdesc">单次生成，适合偶尔使用</div>
+      <div style="font-size:11px;color:#6366f1;margin-top:6px">点击充值 →</div>
     </div>
-    <div class="price-card featured">
+    <div class="price-card featured" onclick="showTab('recharge');loadRecharge()" style="cursor:pointer">
       <div class="pname">个人版</div>
       <div class="pprice">¥${data.personal_monthly}<span>/月</span></div>
       <div class="pdesc">每月不限次 · ${data.free_trial}次免费试用</div>
+      <div style="font-size:11px;color:#6366f1;margin-top:6px">点击充值 →</div>
     </div>
-    <div class="price-card">
+    <div class="price-card" onclick="showTab('recharge');loadRecharge()" style="cursor:pointer">
       <div class="pname">企业版</div>
       <div class="pprice">¥${data.enterprise_monthly}<span>/月</span></div>
       <div class="pdesc">百万级 · 无限制 · API接入</div>
+      <div style="font-size:11px;color:#6366f1;margin-top:6px">点击充值 →</div>
     </div>
   `;
 }
@@ -277,32 +280,55 @@ async function analyze(){
   const sql = document.getElementById('sql-input').value.trim();
   if(!sql){show('请先粘贴SQL结构');return}
 
-  const form = new FormData();
-  form.append('schema', sql);
-  const headers = token ? {'Authorization': 'Bearer '+token} : {};
-  const res = await fetch(API+'/api/generate/analyze', {method:'POST', headers:{...headers}, body:form}).catch(()=>null);
-  if(!res||!res.ok){show('分析失败');return}
-  const data = await res.json();
-  const tables = data.tables||[];
+  // 检查登录状态
+  if(!token){
+    show('请先登录');
+    document.getElementById('auth-view').classList.remove('hidden');
+    document.getElementById('main-view').classList.add('hidden');
+    return;
+  }
 
-  // 显示结果
-  let html = '';
-  tables.forEach((t,i)=>{
-    html += `<h3 style="margin-top:${i>0?'16px':'0'};margin-bottom:8px">📋 表 ${t.name||'table_'+i}</h3>`;
-    html += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
-    html += '<tr style="background:#f8f9fa;font-weight:600;color:#666"><td style="padding:6px 8px">字段</td><td style="padding:6px 8px">类型</td><td style="padding:6px 8px">生成方式</td></tr>';
-    (t.fields||[]).forEach(f=>{
-      html += `<tr><td style="padding:4px 8px;border-top:1px solid #eee;font-family:monospace">${f.field}</td><td style="padding:4px 8px;border-top:1px solid #eee;font-size:12px;color:#666">${f.type||''}</td><td style="padding:4px 8px;border-top:1px solid #eee"><span style="background:#f5f3ff;color:#6366f1;padding:1px 6px;border-radius:4px;font-size:11px">${f.gen_type}</span></td></tr>`;
+  // 按钮反馈
+  const btn = document.querySelector('button[onclick="analyze()"]');
+  if(btn){btn.textContent='⏳ 分析中...';btn.disabled=true;}
+
+  try {
+    const form = new FormData();
+    form.append('schema', sql);
+    const res = await fetch(API+'/api/generate/analyze', {method:'POST', headers:{'Authorization':'Bearer '+token}, body:form});
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      show('分析失败: '+(err.detail||res.statusText));
+      if(btn){btn.textContent='分析结构 →';btn.disabled=false;}
+      return;
+    }
+    const data = await res.json();
+    const tables = data.tables||[];
+    if(!tables.length){show('未识别到表结构，请检查SQL格式');if(btn){btn.textContent='分析结构 →';btn.disabled=false;}return;}
+
+    let html = '';
+    tables.forEach((t,i)=>{
+      html += `<h3 style="margin-top:${i>0?'16px':'0'};margin-bottom:8px">📋 表 ${t.name||'table_'+i}</h3>`;
+      html += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
+      html += '<tr style="background:#f8f9fa;font-weight:600;color:#666"><td style="padding:6px 8px">字段</td><td style="padding:6px 8px">类型</td><td style="padding:6px 8px">生成方式</td></tr>';
+      (t.fields||[]).forEach(f=>{
+        html += `<tr><td style="padding:4px 8px;border-top:1px solid #eee;font-family:monospace">${f.field}</td><td style="padding:4px 8px;border-top:1px solid #eee;font-size:12px;color:#666">${f.type||''}</td><td style="padding:4px 8px;border-top:1px solid #eee"><span style="background:#f5f3ff;color:#6366f1;padding:1px 6px;border-radius:4px;font-size:11px">${f.gen_type}</span></td></tr>`;
+      });
+      html += '</table>';
     });
-    html += '</table>';
-  });
-  document.getElementById('field-list').innerHTML = html;
-  document.getElementById('schema-result').classList.remove('hidden');
-  currentSchema = tables;
+    document.getElementById('field-list').innerHTML = html;
+    document.getElementById('schema-result').classList.remove('hidden');
+    currentSchema = tables;
+    show('✅ 分析完成，找到 '+tables.length+' 个表');
+  } catch(e) {
+    show('分析出错: '+e.message);
+  }
+  if(btn){btn.textContent='分析结构 →';btn.disabled=false;}
 }
 
 async function generate(){
   if(!currentSchema||!currentSchema.length){show('请先分析SQL结构');return}
+  if(!token){show('请先登录');return}
   const rows = parseInt(document.getElementById('row-count').value) || 1000;
   const fmt = document.getElementById('output-format').value;
 
@@ -311,19 +337,30 @@ async function generate(){
   form.append('row_count', String(rows));
   form.append('output_format', fmt);
 
-  const headers = token ? {'Authorization': 'Bearer '+token} : {};
-  const res = await fetch(API+'/api/generate/run', {method:'POST', headers:{...headers}, body:form}).catch(()=>null);
-  if(!res||!res.ok){show('生成失败，请检查余额');return}
-  const data = await res.json();
-  currentTaskId = data.task_id;
+  const btn = document.querySelector('button[onclick="generate()"]');
+  if(btn){btn.textContent='⏳ 生成中...';btn.disabled=true;}
 
-  show('🚀 正在生成...');
-  document.getElementById('gen-result').classList.remove('hidden');
-  document.getElementById('gen-stats').innerHTML = '<span style="color:#92400e">⏳ 生成中，请稍候...</span>';
-  document.getElementById('download-btn').disabled = true;
+  try {
+    const res = await fetch(API+'/api/generate/run', {method:'POST', headers:{'Authorization':'Bearer '+token}, body:form});
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      show('生成失败: '+(err.detail||'请检查余额'));
+      if(btn){btn.textContent='🚀 生成数据';btn.disabled=false;}
+      return;
+    }
+    const data = await res.json();
+    currentTaskId = data.task_id;
 
-  // 轮询
-  pollTask(currentTaskId);
+    show('🚀 正在生成...');
+    document.getElementById('gen-result').classList.remove('hidden');
+    document.getElementById('gen-stats').innerHTML = '<span style="color:#92400e">⏳ 生成中，请稍候...</span>';
+    document.getElementById('download-btn').disabled = true;
+
+    pollTask(currentTaskId);
+  } catch(e) {
+    show('生成出错: '+e.message);
+  }
+  if(btn){btn.textContent='🚀 生成数据';btn.disabled=false;}
 }
 
 async function pollTask(taskId){
@@ -347,9 +384,23 @@ async function pollTask(taskId){
   document.getElementById('gen-stats').innerHTML = '⚠️ 超时，请到任务记录中查看';
 }
 
-function downloadResult(){
+async function downloadResult(){
   if(!currentTaskId) return;
-  window.open(API+'/api/tasks/'+currentTaskId+'/download', '_blank');
+  if(!token){show('请先登录');return;}
+  const btn = document.getElementById('download-btn');
+  if(btn){btn.textContent='⏳ 下载中...';btn.disabled=true;}
+  try {
+    const res = await fetch(API+'/api/tasks/'+currentTaskId+'/download', {headers:{'Authorization':'Bearer '+token}});
+    if(!res.ok){show('下载失败');if(btn){btn.textContent='📥 下载';btn.disabled=false;}return;}
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'gendata_task_'+currentTaskId+'.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    show('✅ 下载完成');
+  } catch(e) { show('下载失败: '+e.message); }
+  if(btn){btn.textContent='📥 下载';btn.disabled=false;}
 }
 
 function resetGen(){
@@ -359,6 +410,25 @@ function resetGen(){
   document.getElementById('sql-input').value = '';
 }
 
+// 任务列表下载（带token）
+async function downloadTaskById(taskId){
+  if(!token){show('请先登录');return;}
+  const btn = event.target;
+  const orig = btn.textContent;
+  btn.textContent='⏳';btn.disabled=true;
+  try {
+    const res = await fetch(API+'/api/tasks/'+taskId+'/download', {headers:{'Authorization':'Bearer '+token}});
+    if(!res.ok){show('下载失败');btn.textContent=orig;btn.disabled=false;return;}
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='gendata_task_'+taskId+'.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    show('✅ 下载完成');
+  } catch(e) { show('下载失败'); }
+  btn.textContent=orig;btn.disabled=false;
+}
+
 // ── Tasks ──
 async function loadTasks(){
   const data = await apiFetch('/api/tasks');
@@ -366,7 +436,7 @@ async function loadTasks(){
   let html = '';
   data.forEach(t=>{
     const statusClass = 'status-'+t.status;
-    html += `<div class="task-item"><div class="task-info"><div class="tname">任务 #${t.id}</div><div class="tmeta">${t.row_count}条 · ${t.output_format.toUpperCase()} · ${t.created_at||''}</div></div><div><span class="status-badge ${statusClass}">${t.status==='done'?'已完成':t.status==='running'?'生成中':t.status==='failed'?'失败':'等待中'}</span>${t.has_output?`<button class="btn btn-sm btn-primary" style="margin-left:8px" onclick="window.open('${API}/api/tasks/${t.id}/download','_blank')">下载</button>`:''}</div></div>`;
+    html += `<div class="task-item"><div class="task-info"><div class="tname">任务 #${t.id}</div><div class="tmeta">${t.row_count}条 · ${t.output_format.toUpperCase()} · ${t.created_at||''}</div></div><div><span class="status-badge ${statusClass}">${t.status==='done'?'已完成':t.status==='running'?'生成中':t.status==='failed'?'失败':'等待中'}</span>${t.has_output?`<button class="btn btn-sm btn-primary" style="margin-left:8px" onclick="downloadTaskById(${t.id})">下载</button>`:''}</div></div>`;
   });
   document.getElementById('task-list').innerHTML = html;
 }
